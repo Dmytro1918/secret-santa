@@ -2,6 +2,7 @@ import express, { Router, type Request, type Response } from 'express';
 import Participant from '../models/participant.ts'; 
 import mongoose from 'mongoose';
 import secretSantaDrawFunction, { type SantaPair} from '../utils/secretSantaDrawFunction.ts';
+import { sendSantaAssignmentEmail } from '../services/mailService.ts';
 
 
 const router = Router();
@@ -77,12 +78,28 @@ router.post('/draw/:eventCode', async(req:Request, res:Response) => {
             },
         }));
         await Participant.bulkWrite(bulkOperations as any);
+        await Participant.bulkWrite(bulkOperations as any);
+
+
+    for (const pair of drawResult) {
         
-        res.status(200).json({ message:"The draw has been completed successfully!", drawDetails: drawResult })
+        const santa = participants.find(p => p._id.toString() === pair.santaId.toString());
+        const recipient = participants.find(p => p._id.toString() === pair.recepientId.toString());
+        
+        if (santa && recipient) {
+            await sendSantaAssignmentEmail(
+                santa.email,
+                recipient.name,
+                recipient.wishList
+            );
+        }
+    }
+
+        res.status(200).json({ message:"The draw has been completed successfully and all emails were sent!", drawDetails: drawResult })
         
     } catch(error) {
         console.error(error)
-        return res.status(500).json({ message: 'Something went wrong with servers resoinse while shuffeling.'})
+        return res.status(500).json({ message: 'Something went wrong with servers response while shuffeling.'})
     }
 
 })
